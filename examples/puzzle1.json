@@ -1,0 +1,139 @@
+{
+  "rows": 4,
+  "cols": 7,
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    },
+    {
+      "positions": [
+        {"row": 0, "col": 2},
+        {"row": 1, "col": 2}
+      ],
+      "constraint": {
+        "type": "!="
+      }
+    },
+    {
+      "positions": [
+        {"row": 0, "col": 3},
+        {"row": 0, "col": 4}
+      ],
+      "constraint": {
+        "type": "sum",
+        "value": 8
+      }
+    },
+    {
+      "positions": [
+        {"row": 0, "col": 5},
+        {"row": 0, "col": 6}
+      ],
+      "constraint": {
+        "type": ">",
+        "value": 3
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 0},
+        {"row": 1, "col": 1}
+      ],
+      "constraint": {
+        "type": "<",
+        "value": 4
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 3},
+        {"row": 1, "col": 4}
+      ],
+      "constraint": {
+        "type": "none"
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 5},
+        {"row": 1, "col": 6}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    },
+    {
+      "positions": [
+        {"row": 2, "col": 0},
+        {"row": 2, "col": 1}
+      ],
+      "constraint": {
+        "type": "sum",
+        "value": 5
+      }
+    },
+    {
+      "positions": [
+        {"row": 2, "col": 2},
+        {"row": 2, "col": 3}
+      ],
+      "constraint": {
+        "type": "!="
+      }
+    },
+    {
+      "positions": [
+        {"row": 2, "col": 4},
+        {"row": 2, "col": 5}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    },
+    {
+      "positions": [
+        {"row": 2, "col": 6},
+        {"row": 3, "col": 6}
+      ],
+      "constraint": {
+        "type": ">",
+        "value": 2
+      }
+    },
+    {
+      "positions": [
+        {"row": 3, "col": 0},
+        {"row": 3, "col": 1}
+      ],
+      "constraint": {
+        "type": "none"
+      }
+    },
+    {
+      "positions": [
+        {"row": 3, "col": 2},
+        {"row": 3, "col": 3}
+      ],
+      "constraint": {
+        "type": "sum",
+        "value": 7
+      }
+    },
+    {
+      "positions": [
+        {"row": 3, "col": 4},
+        {"row": 3, "col": 5}
+      ],
+      "constraint": {
+        "type": "<",
+        "value": 5
+      }
+    }
+  ]
+}
