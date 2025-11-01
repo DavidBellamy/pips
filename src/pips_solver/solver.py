@@ -15,7 +15,8 @@ class PipsSolver:
             board: The board to solve
         """
         self.board = board
-        self.available_dominoes = self._generate_dominoes()
+        self.all_dominoes = self._generate_dominoes()
+        self.used_dominoes = set()
         
     def _generate_dominoes(self) -> List[Tuple[int, int]]:
         """
@@ -77,23 +78,26 @@ class PipsSolver:
                 continue
             
             # Try each available domino
-            for dots1, dots2 in self.available_dominoes[:]:
+            for domino_tuple in self.all_dominoes:
+                if domino_tuple in self.used_dominoes:
+                    continue
+                    
+                dots1, dots2 = domino_tuple
                 # Try both orientations
                 for d1, d2 in [(dots1, dots2), (dots2, dots1)]:
                     domino = Domino(pos1, pos2, d1, d2)
                     
                     # Try to place the domino
                     if self.board.place_domino(domino):
-                        # Remove domino from available list
-                        original_domino = (dots1, dots2)
-                        self.available_dominoes.remove(original_domino)
+                        # Mark domino as used
+                        self.used_dominoes.add(domino_tuple)
                         
                         # Recursively solve
                         if self.solve():
                             return True
                         
                         # Backtrack
-                        self.available_dominoes.append(original_domino)
+                        self.used_dominoes.remove(domino_tuple)
                         self.board.remove_domino(domino)
         
         return False

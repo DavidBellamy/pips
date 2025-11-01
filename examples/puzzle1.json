@@ -102,7 +102,7 @@
         {"row": 3, "col": 6}
       ],
       "constraint": {
-        "type": ">"  ,
+        "type": ">",
         "value": 2
       }
     },
