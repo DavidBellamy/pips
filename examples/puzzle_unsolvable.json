@@ -1,0 +1,27 @@
+{
+  "rows": 2,
+  "cols": 2,
+  "dominoes": [[0, 0], [1, 1]],
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": ">",
+        "value": 4
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 0},
+        {"row": 1, "col": 1}
+      ],
+      "constraint": {
+        "type": ">",
+        "value": 4
+      }
+    }
+  ]
+}
