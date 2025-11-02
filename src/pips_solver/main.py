@@ -19,33 +19,34 @@ def format_solution(solver: PipsSolver) -> str:
     """
     board = solver.board
     
-    # Determine the grid dimensions based on actual positions
-    if board.valid_positions:
-        max_row = max(pos.row for pos in board.valid_positions)
-        max_col = max(pos.col for pos in board.valid_positions)
-        min_row = min(pos.row for pos in board.valid_positions)
-        min_col = min(pos.col for pos in board.valid_positions)
-    else:
-        max_row = max_col = min_row = min_col = 0
-    
-    # Create a display grid with dots for invalid positions
-    grid = [["." for _ in range(max_col - min_col + 1)] for _ in range(max_row - min_row + 1)]
-    
-    # Mark valid but empty positions with spaces
-    for pos in board.valid_positions:
-        grid[pos.row - min_row][pos.col - min_col] = " "
-    
-    # Fill in the dots
-    for pos, dots in board.state.items():
-        grid[pos.row - min_row][pos.col - min_col] = str(dots)
-    
     # Build the output string
     lines = []
     lines.append("Solution found!")
     lines.append("")
     
-    for row in grid:
-        lines.append(" ".join(row))
+    # Handle empty board case
+    if not board.valid_positions:
+        lines.append("(empty board)")
+    else:
+        # Determine the grid dimensions based on actual positions
+        max_row = max(pos.row for pos in board.valid_positions)
+        max_col = max(pos.col for pos in board.valid_positions)
+        min_row = min(pos.row for pos in board.valid_positions)
+        min_col = min(pos.col for pos in board.valid_positions)
+        
+        # Create a display grid with dots for invalid positions
+        grid = [["." for _ in range(max_col - min_col + 1)] for _ in range(max_row - min_row + 1)]
+        
+        # Mark valid but empty positions with spaces
+        for pos in board.valid_positions:
+            grid[pos.row - min_row][pos.col - min_col] = " "
+        
+        # Fill in the dots
+        for pos, dots in board.state.items():
+            grid[pos.row - min_row][pos.col - min_col] = str(dots)
+        
+        for row in grid:
+            lines.append(" ".join(row))
     
     lines.append("")
     lines.append(f"Placed {len(board.placed_dominoes)} dominoes:")

@@ -99,13 +99,13 @@ class TestBoard:
     def test_board_creation(self):
         """Test board creation."""
         regions = []
-        board = Board(4, 7, regions)
+        board = Board(rows=4, cols=7, regions=regions)
         assert board.rows == 4
         assert board.cols == 7
         
     def test_board_valid_position(self):
         """Test position validation."""
-        board = Board(4, 7, [])
+        board = Board(rows=4, cols=7, regions=[])
         assert board.is_valid_position(Position(0, 0)) is True
         assert board.is_valid_position(Position(3, 6)) is True
         assert board.is_valid_position(Position(4, 0)) is False
@@ -114,7 +114,7 @@ class TestBoard:
     def test_board_place_domino(self):
         """Test placing a domino on the board."""
         regions = []
-        board = Board(4, 7, regions)
+        board = Board(rows=4, cols=7, regions=regions)
         
         domino = Domino(Position(0, 0), Position(0, 1), 3, 4)
         assert board.place_domino(domino) is True
@@ -124,7 +124,7 @@ class TestBoard:
     def test_board_place_domino_invalid(self):
         """Test that placing domino on occupied position fails."""
         regions = []
-        board = Board(4, 7, regions)
+        board = Board(rows=4, cols=7, regions=regions)
         
         domino1 = Domino(Position(0, 0), Position(0, 1), 3, 4)
         board.place_domino(domino1)
@@ -135,7 +135,7 @@ class TestBoard:
     def test_board_remove_domino(self):
         """Test removing a domino from the board."""
         regions = []
-        board = Board(4, 7, regions)
+        board = Board(rows=4, cols=7, regions=regions)
         
         domino = Domino(Position(0, 0), Position(0, 1), 3, 4)
         board.place_domino(domino)
@@ -202,7 +202,7 @@ class TestSolver:
         constraint = Constraint(ConstraintType.EQUAL)
         region = Region(positions, constraint)
         
-        board = Board(2, 2, [region])
+        board = Board(rows=2, cols=2, regions=[region])
         solver = PipsSolver(board)
         
         # The solver should be able to find a solution
