@@ -29,6 +29,7 @@ pip install -e ".[dev]"
 
 ### Command Line
 
+Run the solver with a puzzle file:
 ```bash
 pips-solver examples/puzzle1.json
 ```
@@ -38,9 +39,21 @@ With verbose output:
 pips-solver -v examples/puzzle1.json
 ```
 
+### Example Puzzles
+
+The `examples/` directory contains several puzzle files:
+- `puzzle_simple.json` - Simple 2x4 rectangular puzzle
+- `puzzle1.json` - Standard 4x7 rectangular puzzle
+- `puzzle_l_shaped.json` - L-shaped board with 6 cells
+- `puzzle_with_hole.json` - 3x3 board with a hole in the middle
+
 ### Puzzle Format
 
-Puzzles are defined in JSON format:
+Puzzles are defined in JSON format. The solver supports both rectangular boards and arbitrary board shapes.
+
+#### Rectangular Board Format (Classic)
+
+For traditional rectangular boards, specify `rows` and `cols`:
 
 ```json
 {
@@ -53,7 +66,7 @@ Puzzles are defined in JSON format:
         {"row": 0, "col": 1}
       ],
       "constraint": {
-        "type": "=",
+        "type": "="
       }
     },
     {
@@ -70,6 +83,38 @@ Puzzles are defined in JSON format:
 }
 ```
 
+#### Arbitrary Shape Format (New)
+
+For boards with arbitrary shapes (L-shaped, boards with holes, disconnected regions, etc.), specify `valid_positions`:
+
+```json
+{
+  "valid_positions": [
+    {"row": 0, "col": 0},
+    {"row": 0, "col": 1},
+    {"row": 1, "col": 0},
+    {"row": 1, "col": 1},
+    {"row": 2, "col": 0},
+    {"row": 2, "col": 1}
+  ],
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    }
+  ]
+}
+```
+
+You can also specify both `rows`/`cols` and `valid_positions` for boards that are rectangular in dimensions but have some cells removed (e.g., boards with holes).
+
+#### Constraint Types
+
 Constraint types:
 - `"type": "="` - All dots equal
 - `"type": "!="` - All dots different  
@@ -77,6 +122,15 @@ Constraint types:
 - `"type": "<"` - All dots less than value (requires `"value": N`)
 - `"type": "sum"` - Dots sum to value (requires `"value": N`)
 - `"type": "none"` - No constraint
+
+#### Example Board Shapes
+
+The solver now supports various board shapes:
+- **Rectangular boards**: Traditional NxM grids (use `rows` and `cols`)
+- **L-shaped boards**: Non-rectangular connected shapes
+- **Boards with holes**: Rectangular grids with missing cells in the middle
+- **Disconnected boards**: Multiple separate regions that don't connect
+- **Custom shapes**: Any arbitrary arrangement of cells
 
 ## Testing
 
