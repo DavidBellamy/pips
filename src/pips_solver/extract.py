@@ -221,20 +221,45 @@ def extract_puzzle(path: str, retry: int = 1) -> dict:
 
 def main():
     """Command-line interface for puzzle extraction."""
-    if len(sys.argv) < 2:
-        print("Usage: python -m pips_solver.extract <screenshot.png>")
-        print("       pips-extract <screenshot.png>")
-        sys.exit(1)
+    import argparse
     
-    picture = sys.argv[1]
+    parser = argparse.ArgumentParser(
+        description="Extract NYT Pips puzzle data from screenshots using GPT-4o-mini",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  pips-extract screenshot.png
+  pips-extract puzzle.jpg > puzzle.json
+  
+Environment:
+  OPENAI_API_KEY must be set to use this feature
+        """
+    )
+    
+    parser.add_argument(
+        "screenshot",
+        help="Path to screenshot image file (PNG, JPG, etc.)"
+    )
+    
+    parser.add_argument(
+        "-r", "--retry",
+        type=int,
+        default=1,
+        help="Number of retry attempts if validation fails (default: 1)"
+    )
+    
+    args = parser.parse_args()
+    
     try:
-        result = extract_puzzle(picture, retry=1)
+        result = extract_puzzle(args.screenshot, retry=args.retry)
         print(json.dumps(result, indent=2, sort_keys=True))
     except FileNotFoundError:
-        print(f"Error: File '{picture}' not found.", file=sys.stderr)
+        print(f"Error: File '{args.screenshot}' not found.", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error extracting puzzle: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 

@@ -25,9 +25,35 @@ For development with testing:
 pip install -e ".[dev]"
 ```
 
+**Note**: The screenshot extraction feature requires the `openai`, `jsonschema`, and `pillow` packages, which are automatically installed as dependencies. You'll also need to set your OpenAI API key as an environment variable:
+
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+```
+
 ## Usage
 
-### Command Line
+### Screenshot Extraction (New!)
+
+Extract puzzle data from a screenshot using GPT-4o-mini vision:
+
+```bash
+pips-extract screenshot.png > puzzle.json
+```
+
+This will analyze the screenshot and output the puzzle data in JSON format. The extraction uses OpenAI's GPT-4o-mini model with JSON schema validation to ensure accurate extraction.
+
+**Requirements**:
+- Set the `OPENAI_API_KEY` environment variable
+- The screenshot should clearly show the puzzle board and available domino tiles
+
+You can then solve the extracted puzzle:
+```bash
+pips-extract screenshot.png > puzzle.json
+pips-solver puzzle.json
+```
+
+### Command Line Solver
 
 Run the solver with a puzzle file:
 ```bash
@@ -149,6 +175,36 @@ The solver now supports various board shapes:
 - **Boards with holes**: Rectangular grids with missing cells in the middle
 - **Disconnected boards**: Multiple separate regions that don't connect
 - **Custom shapes**: Any arbitrary arrangement of cells
+
+### Screenshot Extraction Details
+
+The `pips-extract` command uses OpenAI's GPT-4o-mini vision model to extract puzzle data from screenshots. The extraction process:
+
+1. **Loads the image**: Converts the screenshot to a base64-encoded data URL
+2. **Calls GPT-4o-mini**: Uses structured output with JSON schema to ensure valid format
+3. **Validates the output**: 
+   - Schema validation: Ensures the JSON matches the required structure
+   - Semantic validation: Checks domain-specific rules (e.g., "=" constraints only on single cells)
+4. **Retries on errors**: If validation fails, includes error messages in the next attempt
+
+**Python API**:
+
+```python
+from pips_solver.extract import extract_puzzle
+
+# Extract puzzle from screenshot
+puzzle_data = extract_puzzle("screenshot.png", retry=1)
+
+# puzzle_data is a dictionary with keys: valid_positions, dominoes, regions
+print(puzzle_data)
+```
+
+**Limitations**:
+- Requires a clear, high-quality screenshot
+- Works best with standard NYT Pips puzzle layouts
+- May need manual correction for unusual layouts or poor image quality
+- The "=" constraint with a value is used for single fixed cells
+- The "sum" constraint is used for regions that sum to a value
 
 ## Testing
 
