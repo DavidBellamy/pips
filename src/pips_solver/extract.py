@@ -216,7 +216,6 @@ def extract_puzzle(path: str, retry: int = 1) -> dict:
             last_err = e
             if attempt == retry:
                 raise
-    return data
 
 
 def main():

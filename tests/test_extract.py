@@ -67,7 +67,7 @@ class TestSchema:
         validate(instance=valid_puzzle, schema=NYT_PIPS_SCHEMA)
     
     def test_constraint_equal_structure(self):
-        """Test that equal constraints with value field."""
+        """Test that equal constraints work with value field."""
         valid_puzzle = {
             "valid_positions": [{"row": 0, "col": 0}],
             "dominoes": [[0, 0]],
