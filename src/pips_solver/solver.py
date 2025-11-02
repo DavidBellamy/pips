@@ -20,17 +20,24 @@ class PipsSolver:
         
     def _generate_dominoes(self) -> List[Tuple[int, int]]:
         """
-        Generate all possible domino combinations (0-0 through 6-6).
-        Each domino appears once.
+        Generate the list of available domino combinations.
+        
+        If the board specifies available dominoes, use those.
+        Otherwise, generate all standard dominoes (0-0 through 6-6).
         
         Returns:
             List of tuples representing domino dot combinations
         """
-        dominoes = []
-        for i in range(7):
-            for j in range(i, 7):
-                dominoes.append((i, j))
-        return dominoes
+        if self.board.available_dominoes is not None:
+            # Use the dominoes specified by the puzzle
+            return self.board.available_dominoes[:]
+        else:
+            # Generate all standard dominoes (0-0 through 6-6)
+            dominoes = []
+            for i in range(7):
+                for j in range(i, 7):
+                    dominoes.append((i, j))
+            return dominoes
     
     def _get_adjacent_positions(self, pos: Position) -> List[Position]:
         """

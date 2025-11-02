@@ -354,3 +354,147 @@ class TestArbitraryShapes:
         # Empty board is already complete
         assert board.is_complete() is True
         assert solver.solve() is True
+
+
+class TestAvailableDominoes:
+    """Tests for puzzle-specific available dominoes."""
+    
+    def test_board_with_specified_dominoes(self):
+        """Test that board stores specified dominoes."""
+        dominoes = [(0, 0), (0, 1), (1, 2), (3, 4)]
+        board = Board(rows=2, cols=4, regions=[], available_dominoes=dominoes)
+        assert board.available_dominoes == dominoes
+    
+    def test_board_without_specified_dominoes(self):
+        """Test that board defaults to None for dominoes when not specified."""
+        board = Board(rows=2, cols=4, regions=[])
+        assert board.available_dominoes is None
+    
+    def test_solver_uses_specified_dominoes(self):
+        """Test that solver uses only specified dominoes."""
+        # Create a simple 2x2 board with specific dominoes
+        dominoes = [(0, 0), (1, 1)]
+        board = Board(rows=2, cols=2, regions=[], available_dominoes=dominoes)
+        solver = PipsSolver(board)
+        
+        # Solver should have exactly 2 dominoes
+        assert len(solver.all_dominoes) == 2
+        assert (0, 0) in solver.all_dominoes
+        assert (1, 1) in solver.all_dominoes
+    
+    def test_solver_generates_all_dominoes_when_not_specified(self):
+        """Test that solver generates all 28 standard dominoes when not specified."""
+        board = Board(rows=2, cols=4, regions=[])
+        solver = PipsSolver(board)
+        
+        # Should have all 28 standard dominoes (0-0 through 6-6)
+        assert len(solver.all_dominoes) == 28
+        assert (0, 0) in solver.all_dominoes
+        assert (6, 6) in solver.all_dominoes
+        assert (3, 5) in solver.all_dominoes
+    
+    def test_puzzle_with_limited_dominoes(self):
+        """Test solving a puzzle with limited available dominoes."""
+        # Create a 2x2 puzzle with only specific dominoes available
+        # This ensures we can only solve with the given tiles
+        dominoes = [(0, 0), (1, 1)]
+        regions = [
+            Region({Position(0, 0), Position(0, 1)}, Constraint(ConstraintType.EQUAL)),
+            Region({Position(1, 0), Position(1, 1)}, Constraint(ConstraintType.EQUAL))
+        ]
+        board = Board(rows=2, cols=2, regions=regions, available_dominoes=dominoes)
+        solver = PipsSolver(board)
+        
+        # Should be able to solve with these dominoes
+        assert solver.solve() is True
+        assert len(board.placed_dominoes) == 2
+    
+    def test_puzzle_cannot_solve_with_insufficient_dominoes(self):
+        """Test that puzzle cannot be solved if dominoes are insufficient."""
+        # Create a 2x4 puzzle with only 2 dominoes (need 4)
+        dominoes = [(0, 0), (1, 1)]
+        board = Board(rows=2, cols=4, regions=[], available_dominoes=dominoes)
+        solver = PipsSolver(board)
+        
+        # Should not be able to solve (need 4 dominoes, only have 2)
+        assert solver.solve() is False
+    
+    def test_parse_puzzle_with_dominoes(self):
+        """Test parsing a puzzle with specified dominoes."""
+        json_str = """
+        {
+            "rows": 2,
+            "cols": 4,
+            "dominoes": [[0, 0], [0, 1], [1, 2], [3, 4]],
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "="}
+                }
+            ]
+        }
+        """
+        board = load_puzzle_from_string(json_str)
+        
+        assert board.available_dominoes is not None
+        assert len(board.available_dominoes) == 4
+        assert (0, 0) in board.available_dominoes
+        assert (0, 1) in board.available_dominoes
+        assert (1, 2) in board.available_dominoes
+        assert (3, 4) in board.available_dominoes
+    
+    def test_parse_puzzle_without_dominoes(self):
+        """Test parsing a puzzle without specified dominoes."""
+        json_str = """
+        {
+            "rows": 2,
+            "cols": 2,
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "="}
+                }
+            ]
+        }
+        """
+        board = load_puzzle_from_string(json_str)
+        
+        # Should default to None (use all standard dominoes)
+        assert board.available_dominoes is None
+    
+    def test_dominoes_normalized_order(self):
+        """Test that dominoes are normalized to (smaller, larger) order."""
+        json_str = """
+        {
+            "rows": 2,
+            "cols": 2,
+            "dominoes": [[5, 2], [3, 1], [0, 0]],
+            "regions": []
+        }
+        """
+        board = load_puzzle_from_string(json_str)
+        
+        # Dominoes should be normalized
+        assert (2, 5) in board.available_dominoes
+        assert (1, 3) in board.available_dominoes
+        assert (0, 0) in board.available_dominoes
+    
+    def test_solve_with_exact_dominoes_needed(self):
+        """Test solving when exactly the needed dominoes are provided."""
+        # Create a 2x2 board that needs specific dominoes
+        dominoes = [(2, 2), (3, 3)]
+        regions = [
+            Region({Position(0, 0), Position(0, 1)}, Constraint(ConstraintType.EQUAL)),
+            Region({Position(1, 0), Position(1, 1)}, Constraint(ConstraintType.EQUAL))
+        ]
+        board = Board(rows=2, cols=2, regions=regions, available_dominoes=dominoes)
+        solver = PipsSolver(board)
+        
+        # Should solve successfully
+        assert solver.solve() is True
+        assert len(board.placed_dominoes) == 2
+        
+        # Verify the correct dominoes were placed
+        placed_tuples = [(min(d.dots1, d.dots2), max(d.dots1, d.dots2)) for d in board.placed_dominoes]
+        assert (2, 2) in placed_tuples
+        assert (3, 3) in placed_tuples

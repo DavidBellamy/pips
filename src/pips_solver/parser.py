@@ -88,6 +88,14 @@ def load_puzzle(file_path: str) -> Board:
         "valid_positions": [...],
         "regions": [...]
     }
+    
+    With available dominoes:
+    {
+        "rows": 2,
+        "cols": 4,
+        "dominoes": [[0, 0], [0, 1], [1, 2], [3, 4]],
+        "regions": [...]
+    }
     """
     with open(file_path, 'r') as f:
         data = json.load(f)
@@ -105,7 +113,17 @@ def load_puzzle(file_path: str) -> Board:
             col = pos_data["col"]
             valid_positions.add(Position(row, col))
     
-    return Board(rows, cols, regions, valid_positions)
+    # Parse available dominoes if provided
+    available_dominoes = None
+    if "dominoes" in data:
+        available_dominoes = []
+        for domino_data in data["dominoes"]:
+            # Each domino is a list/tuple of two integers
+            dots1, dots2 = domino_data[0], domino_data[1]
+            # Normalize to always have smaller value first
+            available_dominoes.append((min(dots1, dots2), max(dots1, dots2)))
+    
+    return Board(rows, cols, regions, valid_positions, available_dominoes)
 
 
 def load_puzzle_from_string(json_str: str) -> Board:
@@ -132,4 +150,14 @@ def load_puzzle_from_string(json_str: str) -> Board:
             col = pos_data["col"]
             valid_positions.add(Position(row, col))
     
-    return Board(rows, cols, regions, valid_positions)
+    # Parse available dominoes if provided
+    available_dominoes = None
+    if "dominoes" in data:
+        available_dominoes = []
+        for domino_data in data["dominoes"]:
+            # Each domino is a list/tuple of two integers
+            dots1, dots2 = domino_data[0], domino_data[1]
+            # Normalize to always have smaller value first
+            available_dominoes.append((min(dots1, dots2), max(dots1, dots2)))
+    
+    return Board(rows, cols, regions, valid_positions, available_dominoes)
