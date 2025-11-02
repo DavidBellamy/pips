@@ -19,12 +19,25 @@ def format_solution(solver: PipsSolver) -> str:
     """
     board = solver.board
     
-    # Create a display grid
-    grid = [["  " for _ in range(board.cols)] for _ in range(board.rows)]
+    # Determine the grid dimensions based on actual positions
+    if board.valid_positions:
+        max_row = max(pos.row for pos in board.valid_positions)
+        max_col = max(pos.col for pos in board.valid_positions)
+        min_row = min(pos.row for pos in board.valid_positions)
+        min_col = min(pos.col for pos in board.valid_positions)
+    else:
+        max_row = max_col = min_row = min_col = 0
+    
+    # Create a display grid with dots for invalid positions
+    grid = [["." for _ in range(max_col - min_col + 1)] for _ in range(max_row - min_row + 1)]
+    
+    # Mark valid but empty positions with spaces
+    for pos in board.valid_positions:
+        grid[pos.row - min_row][pos.col - min_col] = " "
     
     # Fill in the dots
     for pos, dots in board.state.items():
-        grid[pos.row][pos.col] = f"{dots} "
+        grid[pos.row - min_row][pos.col - min_col] = str(dots)
     
     # Build the output string
     lines = []
@@ -77,7 +90,10 @@ Example:
         board = load_puzzle(args.puzzle_file)
         
         if args.verbose:
-            print(f"Board size: {board.rows}x{board.cols}")
+            if board.rows is not None and board.cols is not None:
+                print(f"Board size: {board.rows}x{board.cols}")
+            else:
+                print(f"Board size: {len(board.valid_positions)} valid positions")
             print(f"Number of regions: {len(board.regions)}")
             print("Solving...")
         
