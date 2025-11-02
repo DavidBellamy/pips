@@ -1,0 +1,44 @@
+{
+  "rows": 2,
+  "cols": 4,
+  "dominoes": [[0, 0], [0, 1], [0, 2], [1, 1]],
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    },
+    {
+      "positions": [
+        {"row": 0, "col": 2},
+        {"row": 0, "col": 3}
+      ],
+      "constraint": {
+        "type": "sum",
+        "value": 1
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 0},
+        {"row": 1, "col": 1}
+      ],
+      "constraint": {
+        "type": "!="
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 2},
+        {"row": 1, "col": 3}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    }
+  ]
+}

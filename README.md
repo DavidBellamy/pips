@@ -46,6 +46,7 @@ The `examples/` directory contains several puzzle files:
 - `puzzle1.json` - Standard 4x7 rectangular puzzle
 - `puzzle_l_shaped.json` - L-shaped board with 6 cells
 - `puzzle_with_hole.json` - 3x3 board with a hole in the middle
+- `puzzle_with_dominoes.json` - Puzzle with specific domino tiles
 
 ### Puzzle Format
 
@@ -82,6 +83,23 @@ For traditional rectangular boards, specify `rows` and `cols`:
   ]
 }
 ```
+
+#### Specifying Available Dominoes
+
+Each Pips puzzle comes with a specific set of domino tiles. You can specify which dominoes are available using the `dominoes` field:
+
+```json
+{
+  "rows": 2,
+  "cols": 4,
+  "dominoes": [[0, 0], [0, 1], [1, 2], [3, 4]],
+  "regions": [...]
+}
+```
+
+Each domino is specified as an array of two integers representing the dot values on each half. If the `dominoes` field is not provided, the solver defaults to using all standard dominoes (0-0 through 6-6, totaling 28 dominoes).
+
+**Important**: The number of specified dominoes must be sufficient to fill the board. A board with N cells requires N/2 dominoes.
 
 #### Arbitrary Shape Format (New)
 

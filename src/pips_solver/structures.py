@@ -111,7 +111,8 @@ class Board:
     """Represents the game board for a pips puzzle."""
     
     def __init__(self, rows: Optional[int] = None, cols: Optional[int] = None, 
-                 regions: Optional[List[Region]] = None, valid_positions: Optional[Set[Position]] = None):
+                 regions: Optional[List[Region]] = None, valid_positions: Optional[Set[Position]] = None,
+                 available_dominoes: Optional[List[Tuple[int, int]]] = None):
         """
         Initialize a board.
         
@@ -121,10 +122,13 @@ class Board:
             regions: List of regions with constraints
             valid_positions: Set of valid positions for arbitrary shaped boards. 
                            If None, will be computed from rows and cols.
+            available_dominoes: List of available domino tiles as (dots1, dots2) tuples.
+                              If None, all standard dominoes (0-0 through 6-6) are available.
         """
         self.rows = rows
         self.cols = cols
         self.regions = regions if regions is not None else []
+        self.available_dominoes = available_dominoes  # Can be None to use all standard dominoes
         
         # Determine valid positions
         if valid_positions is not None:
