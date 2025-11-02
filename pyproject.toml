@@ -12,6 +12,11 @@ license = {text = "MIT"}
 authors = [
     {name = "David Bellamy"}
 ]
+dependencies = [
+    "openai>=1.0.0",
+    "jsonschema>=4.0.0",
+    "pillow>=9.0.0",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -26,6 +31,7 @@ classifiers = [
 
 [project.scripts]
 pips-solver = "pips_solver.main:main"
+pips-extract = "pips_solver.extract:main"
 
 [project.optional-dependencies]
 dev = [

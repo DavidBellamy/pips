@@ -1,0 +1,242 @@
+"""Extract puzzle data from screenshots using GPT-4o-mini vision."""
+
+import base64
+import json
+import io
+import sys
+from PIL import Image
+from jsonschema import validate, ValidationError
+from openai import OpenAI
+
+# --- 1) JSON Schema (exactly the "raw JSON Schema" you approved) ---
+NYT_PIPS_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "NYT Pips Extraction",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["valid_positions", "dominoes", "regions"],
+    "properties": {
+        "valid_positions": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/Position"},
+            "uniqueItems": True
+        },
+        "dominoes": {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {"type": "integer", "minimum": 0, "maximum": 6},
+                "additionalItems": False
+            }
+        },
+        "regions": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/Region"}
+        }
+    },
+    "$defs": {
+        "Position": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["row", "col"],
+            "properties": {
+                "row": {"type": "integer", "minimum": 0},
+                "col": {"type": "integer", "minimum": 0}
+            }
+        },
+        "ConstraintNone": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["type"],
+            "properties": {"type": {"type": "string", "enum": ["none"]}}
+        },
+        "ConstraintSum": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["type", "value"],
+            "properties": {
+                "type": {"type": "string", "enum": ["sum"]},
+                "value": {"type": "integer", "minimum": 0}
+            }
+        },
+        "ConstraintEq": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["type", "value"],
+            "properties": {
+                "type": {"type": "string", "enum": ["="]},
+                "value": {"type": "integer", "minimum": 0, "maximum": 6}
+            }
+        },
+        "Constraint": {
+            "oneOf": [
+                {"$ref": "#/$defs/ConstraintNone"},
+                {"$ref": "#/$defs/ConstraintSum"},
+                {"$ref": "#/$defs/ConstraintEq"}
+            ]
+        },
+        "Region": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["positions", "constraint"],
+            "properties": {
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"$ref": "#/$defs/Position"}
+                },
+                "constraint": {"$ref": "#/$defs/Constraint"}
+            }
+        }
+    }
+}
+
+SYSTEM_PROMPT = """You convert a single NYT Pips screenshot into structured JSON.
+Rules:
+- Output must be VALID JSON that matches the provided JSON schema.
+- Use zero-based row/col indices.
+- Extract all valid board cells, the domino tray tiles, and regions with constraints:
+  - type "sum" (value is an integer)
+  - type "="  (value 0..6) for single fixed cells
+  - type "none" when no badge is present.
+- If uncertain, pick the most likely interpretation and remain schema-valid."""
+
+
+def load_image_as_data_url(path: str) -> str:
+    """
+    Load an image file and convert it to a base64 data URL.
+    
+    Args:
+        path: Path to the image file
+        
+    Returns:
+        Base64-encoded data URL string
+    """
+    # Optional: crop to board/tray beforehand to save tokens.
+    with Image.open(path) as im:
+        buf = io.BytesIO()
+        im.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{b64}"
+
+
+def call_model(image_data_url: str, prior_errors: str | None = None) -> dict:
+    """
+    Call GPT-4o-mini with JSON-schema enforcement.
+    
+    Args:
+        image_data_url: Base64-encoded image data URL
+        prior_errors: Optional error message from previous attempt to help model correct
+        
+    Returns:
+        Extracted puzzle data as dictionary
+        
+    Raises:
+        Exception: If API call fails or response cannot be parsed
+    """
+    client = OpenAI()  # uses OPENAI_API_KEY env var
+    
+    user_instructions = (
+        "Extract the JSON for this puzzle." if not prior_errors
+        else f"Your previous JSON failed these checks:\n{prior_errors}\n"
+             "Return corrected JSON that satisfies the schema."
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",  # vision-capable, inexpensive
+        temperature=0,
+        max_tokens=2000,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "nyt_pips_extraction",
+                "strict": True,
+                "schema": NYT_PIPS_SCHEMA
+            },
+        },
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_instructions},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            },
+        ],
+    )
+
+    # Parse the response
+    content = resp.choices[0].message.content
+    return json.loads(content)
+
+
+def semantic_validate(payload: dict):
+    """
+    Perform domain-specific validation beyond JSON Schema.
+    
+    Args:
+        payload: Extracted puzzle data
+        
+    Raises:
+        ValidationError: If semantic validation fails
+    """
+    # Ensure "=" constraints only appear on single-cell regions
+    for r in payload.get("regions", []):
+        c = r["constraint"]
+        if c["type"] == "=" and len(r["positions"]) != 1:
+            raise ValidationError('Constraint "=" must apply to exactly one cell.')
+
+
+def extract_puzzle(path: str, retry: int = 1) -> dict:
+    """
+    Extract puzzle data from a screenshot.
+    
+    Args:
+        path: Path to the screenshot image file
+        retry: Number of retry attempts if validation fails
+        
+    Returns:
+        Extracted puzzle data as dictionary
+        
+    Raises:
+        ValidationError: If extraction fails after all retry attempts
+    """
+    img = load_image_as_data_url(path)
+    last_err = None
+    for attempt in range(retry + 1):
+        data = call_model(img, prior_errors=str(last_err) if last_err else None)
+        try:
+            validate(instance=data, schema=NYT_PIPS_SCHEMA)  # structural
+            semantic_validate(data)  # domain-specific
+            return data
+        except ValidationError as e:
+            last_err = e
+            if attempt == retry:
+                raise
+    return data
+
+
+def main():
+    """Command-line interface for puzzle extraction."""
+    if len(sys.argv) < 2:
+        print("Usage: python -m pips_solver.extract <screenshot.png>")
+        print("       pips-extract <screenshot.png>")
+        sys.exit(1)
+    
+    picture = sys.argv[1]
+    try:
+        result = extract_puzzle(picture, retry=1)
+        print(json.dumps(result, indent=2, sort_keys=True))
+    except FileNotFoundError:
+        print(f"Error: File '{picture}' not found.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error extracting puzzle: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
