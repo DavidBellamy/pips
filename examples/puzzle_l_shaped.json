@@ -1,0 +1,40 @@
+{
+  "valid_positions": [
+    {"row": 0, "col": 0},
+    {"row": 0, "col": 1},
+    {"row": 1, "col": 0},
+    {"row": 1, "col": 1},
+    {"row": 2, "col": 0},
+    {"row": 2, "col": 1}
+  ],
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    },
+    {
+      "positions": [
+        {"row": 1, "col": 0},
+        {"row": 1, "col": 1}
+      ],
+      "constraint": {
+        "type": "sum",
+        "value": 7
+      }
+    },
+    {
+      "positions": [
+        {"row": 2, "col": 0},
+        {"row": 2, "col": 1}
+      ],
+      "constraint": {
+        "type": "!="
+      }
+    }
+  ]
+}

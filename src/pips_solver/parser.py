@@ -62,41 +62,50 @@ def load_puzzle(file_path: str) -> Board:
     Returns:
         Board object
         
-    Example JSON format:
+    Example JSON formats:
+    
+    Old format (rectangular board):
     {
         "rows": 4,
         "cols": 7,
-        "regions": [
-            {
-                "positions": [
-                    {"row": 0, "col": 0},
-                    {"row": 0, "col": 1}
-                ],
-                "constraint": {
-                    "type": "=",
-                }
-            },
-            {
-                "positions": [
-                    {"row": 1, "col": 0},
-                    {"row": 1, "col": 1}
-                ],
-                "constraint": {
-                    "type": "sum",
-                    "value": 8
-                }
-            }
-        ]
+        "regions": [...]
+    }
+    
+    New format (arbitrary shape):
+    {
+        "valid_positions": [
+            {"row": 0, "col": 0},
+            {"row": 0, "col": 1},
+            ...
+        ],
+        "regions": [...]
+    }
+    
+    Hybrid format (optional rows/cols with valid_positions):
+    {
+        "rows": 4,
+        "cols": 7,
+        "valid_positions": [...],
+        "regions": [...]
     }
     """
     with open(file_path, 'r') as f:
         data = json.load(f)
     
-    rows = data["rows"]
-    cols = data["cols"]
-    regions = [parse_region(region_data) for region_data in data["regions"]]
+    rows = data.get("rows")
+    cols = data.get("cols")
+    regions = [parse_region(region_data) for region_data in data.get("regions", [])]
     
-    return Board(rows, cols, regions)
+    # Parse valid_positions if provided
+    valid_positions = None
+    if "valid_positions" in data:
+        valid_positions = set()
+        for pos_data in data["valid_positions"]:
+            row = pos_data["row"]
+            col = pos_data["col"]
+            valid_positions.add(Position(row, col))
+    
+    return Board(rows, cols, regions, valid_positions)
 
 
 def load_puzzle_from_string(json_str: str) -> Board:
@@ -110,8 +119,17 @@ def load_puzzle_from_string(json_str: str) -> Board:
         Board object
     """
     data = json.loads(json_str)
-    rows = data["rows"]
-    cols = data["cols"]
-    regions = [parse_region(region_data) for region_data in data["regions"]]
+    rows = data.get("rows")
+    cols = data.get("cols")
+    regions = [parse_region(region_data) for region_data in data.get("regions", [])]
     
-    return Board(rows, cols, regions)
+    # Parse valid_positions if provided
+    valid_positions = None
+    if "valid_positions" in data:
+        valid_positions = set()
+        for pos_data in data["valid_positions"]:
+            row = pos_data["row"]
+            col = pos_data["col"]
+            valid_positions.add(Position(row, col))
+    
+    return Board(rows, cols, regions, valid_positions)
