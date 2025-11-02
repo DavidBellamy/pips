@@ -110,24 +110,38 @@ class Region:
 class Board:
     """Represents the game board for a pips puzzle."""
     
-    def __init__(self, rows: int, cols: int, regions: List[Region]):
+    def __init__(self, rows: Optional[int] = None, cols: Optional[int] = None, 
+                 regions: Optional[List[Region]] = None, valid_positions: Optional[Set[Position]] = None):
         """
         Initialize a board.
         
         Args:
-            rows: Number of rows on the board
-            cols: Number of columns on the board
+            rows: Number of rows on the board (for rectangular boards, optional)
+            cols: Number of columns on the board (for rectangular boards, optional)
             regions: List of regions with constraints
+            valid_positions: Set of valid positions for arbitrary shaped boards. 
+                           If None, will be computed from rows and cols.
         """
         self.rows = rows
         self.cols = cols
-        self.regions = regions
+        self.regions = regions if regions is not None else []
+        
+        # Determine valid positions
+        if valid_positions is not None:
+            self.valid_positions = valid_positions
+        elif rows is not None and cols is not None:
+            # Rectangular board - generate all positions
+            self.valid_positions = {Position(r, c) for r in range(rows) for c in range(cols)}
+        else:
+            # No valid positions provided and no rows/cols - use empty set
+            self.valid_positions = set()
+        
         self.state = {}  # Maps Position to dot value
         self.placed_dominoes = []  # List of placed Domino objects
         
     def is_valid_position(self, pos: Position) -> bool:
         """Check if a position is valid on the board."""
-        return 0 <= pos.row < self.rows and 0 <= pos.col < self.cols
+        return pos in self.valid_positions
     
     def is_position_occupied(self, pos: Position) -> bool:
         """Check if a position is already occupied by a domino."""
@@ -174,14 +188,12 @@ class Board:
     
     def is_complete(self) -> bool:
         """Check if the board is completely filled."""
-        return len(self.state) == self.rows * self.cols
+        return len(self.state) == len(self.valid_positions)
     
     def get_empty_positions(self) -> List[Position]:
-        """Get all empty positions on the board."""
+        """Get all empty positions on the board in a deterministic order."""
         empty = []
-        for row in range(self.rows):
-            for col in range(self.cols):
-                pos = Position(row, col)
-                if not self.is_position_occupied(pos):
-                    empty.append(pos)
+        for pos in sorted(self.valid_positions, key=lambda p: (p.row, p.col)):
+            if not self.is_position_occupied(pos):
+                empty.append(pos)
         return empty
