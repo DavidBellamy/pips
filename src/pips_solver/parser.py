@@ -126,17 +126,16 @@ def load_puzzle(file_path: str) -> Board:
     return Board(rows, cols, regions, valid_positions, available_dominoes)
 
 
-def load_puzzle_from_string(json_str: str) -> Board:
+def parse_puzzle_from_dict(data: Dict[str, Any]) -> Board:
     """
-    Load a puzzle from a JSON string.
+    Parse a puzzle from a dictionary.
     
     Args:
-        json_str: JSON string containing puzzle data
+        data: Dictionary containing puzzle data
         
     Returns:
         Board object
     """
-    data = json.loads(json_str)
     rows = data.get("rows")
     cols = data.get("cols")
     regions = [parse_region(region_data) for region_data in data.get("regions", [])]
@@ -161,3 +160,17 @@ def load_puzzle_from_string(json_str: str) -> Board:
             available_dominoes.append((min(dots1, dots2), max(dots1, dots2)))
     
     return Board(rows, cols, regions, valid_positions, available_dominoes)
+
+
+def load_puzzle_from_string(json_str: str) -> Board:
+    """
+    Load a puzzle from a JSON string.
+    
+    Args:
+        json_str: JSON string containing puzzle data
+        
+    Returns:
+        Board object
+    """
+    data = json.loads(json_str)
+    return parse_puzzle_from_dict(data)

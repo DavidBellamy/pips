@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pips Puzzle Solver</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Pips Puzzle Solver</h1>
+        <p class="description">
+            Enter a puzzle in JSON format and click "Solve" to find a solution.
+        </p>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <h2>Puzzle Input (JSON)</h2>
+                <textarea id="puzzleInput" placeholder='Enter puzzle JSON here, e.g.:
+{
+  "rows": 2,
+  "cols": 4,
+  "regions": [
+    {
+      "positions": [
+        {"row": 0, "col": 0},
+        {"row": 0, "col": 1}
+      ],
+      "constraint": {
+        "type": "="
+      }
+    }
+  ]
+}'></textarea>
+                <div class="button-group">
+                    <button id="solveBtn" onclick="solvePuzzle()">Solve</button>
+                    <button id="clearBtn" onclick="clearInput()">Clear</button>
+                    <button id="exampleBtn" onclick="loadExample()">Load Example</button>
+                </div>
+            </div>
+            
+            <div class="output-section">
+                <h2>Solution</h2>
+                <div id="loading" class="loading" style="display: none;">
+                    Solving puzzle...
+                </div>
+                <div id="error" class="error" style="display: none;"></div>
+                <pre id="solution" class="solution"></pre>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h2>JSON Format Help</h2>
+            <div class="help-content">
+                <h3>Rectangular Board Format:</h3>
+                <pre>{
+  "rows": 4,
+  "cols": 7,
+  "regions": [...]
+}</pre>
+                
+                <h3>Constraint Types:</h3>
+                <ul>
+                    <li><code>"type": "="</code> - All dots equal</li>
+                    <li><code>"type": "!="</code> - All dots different</li>
+                    <li><code>"type": "&gt;", "value": N</code> - All dots greater than N</li>
+                    <li><code>"type": "&lt;", "value": N</code> - All dots less than N</li>
+                    <li><code>"type": "sum", "value": N</code> - Dots sum to N</li>
+                    <li><code>"type": "none"</code> - No constraint</li>
+                </ul>
+                
+                <h3>Optional Dominoes:</h3>
+                <pre>{
+  "rows": 2,
+  "cols": 4,
+  "dominoes": [[0, 0], [0, 1], [1, 2], [3, 4]],
+  "regions": [...]
+}</pre>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -27,6 +27,19 @@ pip install -e ".[dev]"
 
 ## Usage
 
+### Web Interface
+
+Run the web interface for an interactive experience:
+```bash
+pips-web
+```
+
+Then open your browser to `http://localhost:5000` to access the web interface where you can:
+- Enter puzzles in JSON format
+- Click "Load Example" to see a sample puzzle
+- Click "Solve" to find a solution
+- View the formatted solution with the board state and placed dominoes
+
 ### Command Line
 
 Run the solver with a puzzle file:
