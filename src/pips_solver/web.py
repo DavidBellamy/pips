@@ -52,20 +52,21 @@ def solve():
                 'error': 'No solution found for this puzzle'
             })
             
-    except KeyError as e:
+    except KeyError:
         return jsonify({
             'success': False,
-            'error': f'Missing required field in puzzle: {e}'
+            'error': 'Missing required field in puzzle'
         }), 400
-    except ValueError as e:
+    except ValueError:
         return jsonify({
             'success': False,
-            'error': f'Invalid puzzle data: {e}'
+            'error': 'Invalid puzzle data'
         }), 400
-    except Exception as e:
+    except Exception:
+        # Log the error internally but don't expose details to users
         return jsonify({
             'success': False,
-            'error': f'Error solving puzzle: {str(e)}'
+            'error': 'Error solving puzzle'
         }), 500
 
 
