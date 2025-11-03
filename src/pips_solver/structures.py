@@ -7,11 +7,11 @@ from typing import Optional, List, Set, Tuple
 
 class ConstraintType(Enum):
     """Types of constraints that can be applied to regions."""
-    EQUAL = "="
-    NOT_EQUAL = "!="
-    GREATER_THAN = ">"
-    LESS_THAN = "<"
-    SUM = "sum"
+    EQUAL = "equal"
+    NOTEQUAL = "notequal"
+    GREATER_THAN = "greater_than"
+    LESS_THAN = "less_than"
+    NUMBER = "number"
     NONE = "none"
 
 
@@ -19,17 +19,22 @@ class ConstraintType(Enum):
 class Constraint:
     """Represents a constraint on a region."""
     constraint_type: ConstraintType
-    value: Optional[int] = None  # Used for >, <, and sum constraints
+    value: Optional[int] = None  # Used for aggregate constraints that need a numeric bound
     
     def __str__(self) -> str:
         if self.constraint_type == ConstraintType.NONE:
             return "no constraint"
-        elif self.constraint_type == ConstraintType.SUM:
-            return f"sum={self.value}"
-        elif self.constraint_type in (ConstraintType.GREATER_THAN, ConstraintType.LESS_THAN):
-            return f"{self.constraint_type.value}{self.value}"
-        else:
-            return self.constraint_type.value
+        if self.constraint_type == ConstraintType.EQUAL:
+            return "equal"
+        if self.constraint_type == ConstraintType.NOTEQUAL:
+            return "notequal"
+        if self.constraint_type == ConstraintType.GREATER_THAN:
+            return f"sum>{self.value}" if self.value is not None else "greater_than"
+        if self.constraint_type == ConstraintType.LESS_THAN:
+            return f"sum<{self.value}" if self.value is not None else "less_than"
+        if self.constraint_type == ConstraintType.NUMBER:
+            return f"sum={self.value}" if self.value is not None else "number"
+        return self.constraint_type.value
 
 
 @dataclass
@@ -95,13 +100,19 @@ class Region:
             return True
         elif self.constraint.constraint_type == ConstraintType.EQUAL:
             return len(set(dots)) == 1  # All dots are the same
-        elif self.constraint.constraint_type == ConstraintType.NOT_EQUAL:
-            return len(set(dots)) == len(dots)  # All dots are different
+        elif self.constraint.constraint_type == ConstraintType.NOTEQUAL:
+            return len(set(dots)) == len(dots)
         elif self.constraint.constraint_type == ConstraintType.GREATER_THAN:
-            return all(d > self.constraint.value for d in dots)
+            if self.constraint.value is None:
+                return True
+            return sum(dots) > self.constraint.value
         elif self.constraint.constraint_type == ConstraintType.LESS_THAN:
-            return all(d < self.constraint.value for d in dots)
-        elif self.constraint.constraint_type == ConstraintType.SUM:
+            if self.constraint.value is None:
+                return True
+            return sum(dots) < self.constraint.value
+        elif self.constraint.constraint_type == ConstraintType.NUMBER:
+            if self.constraint.value is None:
+                return True
             return sum(dots) == self.constraint.value
         
         return False

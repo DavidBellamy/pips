@@ -31,17 +31,27 @@ class TestConstraint:
     def test_constraint_str_equal(self):
         """Test string representation of equal constraint."""
         constraint = Constraint(ConstraintType.EQUAL)
-        assert str(constraint) == "="
+        assert str(constraint) == "equal"
         
-    def test_constraint_str_sum(self):
-        """Test string representation of sum constraint."""
-        constraint = Constraint(ConstraintType.SUM, 10)
+    def test_constraint_str_notequal(self):
+        """Test string representation of notequal constraint."""
+        constraint = Constraint(ConstraintType.NOTEQUAL)
+        assert str(constraint) == "notequal"
+
+    def test_constraint_str_number(self):
+        """Test string representation of number constraint."""
+        constraint = Constraint(ConstraintType.NUMBER, 10)
         assert str(constraint) == "sum=10"
         
     def test_constraint_str_greater(self):
         """Test string representation of greater than constraint."""
         constraint = Constraint(ConstraintType.GREATER_THAN, 3)
-        assert str(constraint) == ">3"
+        assert str(constraint) == "sum>3"
+
+    def test_constraint_str_less(self):
+        """Test string representation of less than constraint."""
+        constraint = Constraint(ConstraintType.LESS_THAN, 4)
+        assert str(constraint) == "sum<4"
 
 
 class TestRegion:
@@ -56,6 +66,24 @@ class TestRegion:
         board_state = {Position(0, 0): 3, Position(0, 1): 3}
         assert region.validate(board_state) is True
         
+    def test_region_validate_notequal_success(self):
+        """Test that notequal constraint validates when dots differ."""
+        positions = {Position(0, 0), Position(0, 1)}
+        constraint = Constraint(ConstraintType.NOTEQUAL)
+        region = Region(positions, constraint)
+
+        board_state = {Position(0, 0): 3, Position(0, 1): 4}
+        assert region.validate(board_state) is True
+
+    def test_region_validate_notequal_fail(self):
+        """Test that notequal constraint fails when dots repeat."""
+        positions = {Position(0, 0), Position(0, 1)}
+        constraint = Constraint(ConstraintType.NOTEQUAL)
+        region = Region(positions, constraint)
+
+        board_state = {Position(0, 0): 3, Position(0, 1): 3}
+        assert region.validate(board_state) is False
+
     def test_region_validate_equal_fail(self):
         """Test that equal constraint fails when values differ."""
         positions = {Position(0, 0), Position(0, 1)}
@@ -65,22 +93,49 @@ class TestRegion:
         board_state = {Position(0, 0): 3, Position(0, 1): 4}
         assert region.validate(board_state) is False
         
-    def test_region_validate_sum_success(self):
-        """Test that sum constraint validates correctly."""
+    def test_region_validate_number_success(self):
+        """Test that number constraint validates correctly."""
         positions = {Position(0, 0), Position(0, 1)}
-        constraint = Constraint(ConstraintType.SUM, 7)
+        constraint = Constraint(ConstraintType.NUMBER, 7)
         region = Region(positions, constraint)
         
         board_state = {Position(0, 0): 3, Position(0, 1): 4}
         assert region.validate(board_state) is True
         
-    def test_region_validate_sum_fail(self):
-        """Test that sum constraint fails when sum is wrong."""
+    def test_region_validate_number_fail(self):
+        """Test that number constraint fails when sum is wrong."""
         positions = {Position(0, 0), Position(0, 1)}
-        constraint = Constraint(ConstraintType.SUM, 7)
+        constraint = Constraint(ConstraintType.NUMBER, 7)
         region = Region(positions, constraint)
         
         board_state = {Position(0, 0): 3, Position(0, 1): 3}
+        assert region.validate(board_state) is False
+
+    def test_region_validate_greater_than(self):
+        """Test that greater-than constraint validates based on sum."""
+        positions = {Position(0, 0), Position(0, 1)}
+        constraint = Constraint(ConstraintType.GREATER_THAN, 5)
+        region = Region(positions, constraint)
+
+        board_state = {Position(0, 0): 3, Position(0, 1): 3}
+        assert region.validate(board_state) is True
+
+    def test_region_validate_less_than(self):
+        """Test that less-than constraint validates based on sum."""
+        positions = {Position(0, 0), Position(0, 1)}
+        constraint = Constraint(ConstraintType.LESS_THAN, 5)
+        region = Region(positions, constraint)
+
+        board_state = {Position(0, 0): 1, Position(0, 1): 2}
+        assert region.validate(board_state) is True
+
+    def test_region_validate_less_than_fail(self):
+        """Test that less-than constraint fails when sum exceeds limit."""
+        positions = {Position(0, 0), Position(0, 1)}
+        constraint = Constraint(ConstraintType.LESS_THAN, 3)
+        region = Region(positions, constraint)
+
+        board_state = {Position(0, 0): 2, Position(0, 1): 2}
         assert region.validate(board_state) is False
         
     def test_region_validate_incomplete(self):
@@ -150,22 +205,41 @@ class TestParser:
     
     def test_parse_constraint_equal(self):
         """Test parsing equal constraint."""
-        data = {"type": "="}
+        data = {"type": "equal"}
         constraint = parse_constraint(data)
         assert constraint.constraint_type == ConstraintType.EQUAL
         
-    def test_parse_constraint_sum(self):
-        """Test parsing sum constraint."""
-        data = {"type": "sum", "value": 10}
+    def test_parse_constraint_notequal(self):
+        """Test parsing notequal constraint."""
+        data = {"type": "notequal"}
         constraint = parse_constraint(data)
-        assert constraint.constraint_type == ConstraintType.SUM
+        assert constraint.constraint_type == ConstraintType.NOTEQUAL
+
+    def test_parse_constraint_legacy_notequal(self):
+        """Test parsing legacy notequal constraint."""
+        data = {"type": "!="}
+        constraint = parse_constraint(data)
+        assert constraint.constraint_type == ConstraintType.NOTEQUAL
+
+    def test_parse_constraint_number(self):
+        """Test parsing number constraint."""
+        data = {"type": "number", "value": 10}
+        constraint = parse_constraint(data)
+        assert constraint.constraint_type == ConstraintType.NUMBER
         assert constraint.value == 10
+    
+    def test_parse_constraint_legacy_sum(self):
+        """Test that legacy 'sum' maps to number constraint."""
+        data = {"type": "sum", "value": 6}
+        constraint = parse_constraint(data)
+        assert constraint.constraint_type == ConstraintType.NUMBER
+        assert constraint.value == 6
         
     def test_parse_region(self):
         """Test parsing a region."""
         data = {
             "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-            "constraint": {"type": "="}
+            "constraint": {"type": "equal"}
         }
         region = parse_region(data)
         assert len(region.positions) == 2
@@ -181,7 +255,7 @@ class TestParser:
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "="}
+                    "constraint": {"type": "equal"}
                 }
             ]
         }
@@ -324,11 +398,11 @@ class TestArbitraryShapes:
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "="}
+                    "constraint": {"type": "equal"}
                 },
                 {
                     "positions": [{"row": 1, "col": 0}, {"row": 1, "col": 1}],
-                    "constraint": {"type": "!="}
+                    "constraint": {"type": "notequal"}
                 }
             ]
         }
@@ -429,7 +503,7 @@ class TestAvailableDominoes:
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "="}
+                    "constraint": {"type": "equal"}
                 }
             ]
         }
@@ -452,7 +526,7 @@ class TestAvailableDominoes:
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "="}
+                    "constraint": {"type": "equal"}
                 }
             ]
         }

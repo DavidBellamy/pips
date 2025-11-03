@@ -20,11 +20,17 @@ def parse_constraint(constraint_data: Dict[str, Any]) -> Constraint:
     
     # Map string to ConstraintType
     type_map = {
+        "equal": ConstraintType.EQUAL,
         "=": ConstraintType.EQUAL,
-        "!=": ConstraintType.NOT_EQUAL,
+        "notequal": ConstraintType.NOTEQUAL,
+        "not_equal": ConstraintType.NOTEQUAL,
+        "!=": ConstraintType.NOTEQUAL,
+        "greater_than": ConstraintType.GREATER_THAN,
         ">": ConstraintType.GREATER_THAN,
+        "less_than": ConstraintType.LESS_THAN,
         "<": ConstraintType.LESS_THAN,
-        "sum": ConstraintType.SUM,
+        "number": ConstraintType.NUMBER,
+        "sum": ConstraintType.NUMBER,
         "none": ConstraintType.NONE,
     }
     
