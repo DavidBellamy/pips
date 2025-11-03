@@ -9,6 +9,9 @@ description = "A NYT Pips Puzzle Solver"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
+dependencies = [
+    "flask>=2.0.0",
+]
 authors = [
     {name = "David Bellamy"}
 ]
@@ -26,6 +29,7 @@ classifiers = [
 
 [project.scripts]
 pips-solver = "pips_solver.main:main"
+pips-web = "pips_solver.web:main"
 
 [project.optional-dependencies]
 dev = [
