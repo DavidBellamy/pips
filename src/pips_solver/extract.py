@@ -1,4 +1,4 @@
-"""Extract puzzle data from screenshots using GPT-4o-mini vision."""
+"""Extract puzzle data from screenshots using multimodal LLMs."""
 
 import base64
 import json
@@ -7,6 +7,7 @@ import sys
 from PIL import Image
 from jsonschema import validate, ValidationError
 from openai import OpenAI
+from anthropic import Anthropic
 
 # --- 1) JSON Schema ---
 NYT_PIPS_SCHEMA = {
@@ -88,6 +89,9 @@ Rules:
     - type "none" when no badge is present.
 - If uncertain, pick the most likely interpretation and remain schema-valid."""
 
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022"
+
 
 def load_image_as_data_url(path: str) -> str:
     """
@@ -107,30 +111,47 @@ def load_image_as_data_url(path: str) -> str:
     return f"data:image/png;base64,{b64}"
 
 
-def call_model(image_data_url: str, prior_errors: str | None = None) -> dict:
-    """
-    Call GPT-4o-mini with JSON-schema enforcement.
-    
-    Args:
-        image_data_url: Base64-encoded image data URL
-        prior_errors: Optional error message from previous attempt to help model correct
-        
-    Returns:
-        Extracted puzzle data as dictionary
-        
-    Raises:
-        Exception: If API call fails or response cannot be parsed
-    """
-    client = OpenAI()  # uses OPENAI_API_KEY env var
-    
+def _parse_data_url(image_data_url: str) -> tuple[str, str]:
+    """Split a data URL into media type and base64 payload."""
+    if not image_data_url.startswith("data:"):
+        raise ValueError("Expected a data URL with base64 content.")
+
+    try:
+        header, encoded = image_data_url.split(",", 1)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise ValueError("Malformed data URL: missing comma separator.") from exc
+
+    metadata = header[len("data:"):]
+    parts = metadata.split(";")
+
+    media_type = "image/png"
+    if parts and "/" in parts[0]:
+        media_type = parts[0]
+
+    if "base64" not in parts:
+        raise ValueError("Data URL must be base64 encoded.")
+
+    return media_type, encoded
+
+
+def call_openai(
+    image_data_url: str,
+    prior_errors: str | None = None,
+    model: str | None = None,
+) -> dict:
+    """Call an OpenAI vision-capable model with JSON schema enforcement."""
+    client = OpenAI()
+
     user_instructions = (
         "Extract the JSON for this puzzle." if not prior_errors
         else f"Your previous JSON failed these checks:\n{prior_errors}\n"
              "Return corrected JSON that satisfies the schema."
     )
 
+    resolved_model = model or DEFAULT_OPENAI_MODEL
+
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",  # vision-capable, inexpensive
+        model=resolved_model,
         temperature=0,
         max_tokens=2000,
         response_format={
@@ -153,7 +174,6 @@ def call_model(image_data_url: str, prior_errors: str | None = None) -> dict:
         ],
     )
 
-    # Parse the response. The SDK may expose either a parsed payload or raw text parts.
     message = resp.choices[0].message
     parsed = getattr(message, "parsed", None)
     if parsed is not None:
@@ -178,6 +198,85 @@ def call_model(image_data_url: str, prior_errors: str | None = None) -> dict:
         raise ValidationError(
             f"Model returned invalid JSON (pos {exc.pos}): {exc.msg}. Partial response: {snippet}"
         ) from exc
+
+
+def call_anthropic(
+    image_data_url: str,
+    prior_errors: str | None = None,
+    model: str | None = None,
+) -> dict:
+    """Call Claude 3.5 Haiku (vision) to extract the puzzle JSON."""
+    client = Anthropic()
+
+    user_instructions = (
+        "Extract the JSON for this puzzle." if not prior_errors
+        else f"Your previous JSON failed these checks:\n{prior_errors}\n"
+             "Return corrected JSON that satisfies the schema."
+    )
+
+    media_type, encoded = _parse_data_url(image_data_url)
+    resolved_model = model or DEFAULT_ANTHROPIC_MODEL
+
+    message = client.messages.create(
+        model=resolved_model,
+        temperature=0,
+        max_tokens=2000,
+        system=SYSTEM_PROMPT,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_instructions},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded,
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    text_parts: list[str] = []
+    for block in message.content:
+        block_type = getattr(block, "type", None)
+        block_text = getattr(block, "text", None)
+        if block_type == "text" and block_text:
+            text_parts.append(block_text)
+
+    content_text = "".join(text_parts)
+
+    try:
+        return json.loads(content_text)
+    except json.JSONDecodeError as exc:  # pragma: no cover - depends on remote model output
+        snippet = content_text[:1000]
+        raise ValidationError(
+            f"Model returned invalid JSON (pos {exc.pos}): {exc.msg}. Partial response: {snippet}"
+        ) from exc
+
+
+def call_model(
+    image_data_url: str,
+    prior_errors: str | None = None,
+    provider: str = "openai",
+    model: str | None = None,
+) -> dict:
+    """Dispatch to the selected model provider."""
+
+    provider_normalized = (provider or "openai").lower()
+
+    if provider_normalized in {"openai", "gpt", "gpt-4o"}:
+        return call_openai(image_data_url, prior_errors=prior_errors, model=model)
+
+    if provider_normalized in {"anthropic", "claude", "haiku"}:
+        return call_anthropic(image_data_url, prior_errors=prior_errors, model=model)
+
+    raise ValueError(
+        f"Unknown provider '{provider}'. Supported providers: openai, anthropic."
+    )
 
 
 def semantic_validate(payload: dict):
@@ -220,13 +319,20 @@ def semantic_validate(payload: dict):
             raise ValidationError(f'Unknown constraint type: {t}')
 
 
-def extract_puzzle(path: str, retry: int = 1) -> dict:
+def extract_puzzle(
+    path: str,
+    retry: int = 1,
+    provider: str = "openai",
+    model: str | None = None,
+) -> dict:
     """
     Extract puzzle data from a screenshot.
     
     Args:
         path: Path to the screenshot image file
         retry: Number of retry attempts if validation fails
+        provider: Model provider to call ("openai" or "anthropic")
+        model: Optional explicit model identifier for the provider
         
     Returns:
         Extracted puzzle data as dictionary
@@ -238,7 +344,12 @@ def extract_puzzle(path: str, retry: int = 1) -> dict:
     last_err = None
     for attempt in range(retry + 1):
         try:
-            data = call_model(img, prior_errors=str(last_err) if last_err else None)
+            data = call_model(
+                img,
+                prior_errors=str(last_err) if last_err else None,
+                provider=provider,
+                model=model,
+            )
         except ValidationError as e:
             last_err = e
             if attempt == retry:
@@ -259,17 +370,18 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="Extract NYT Pips puzzle data from screenshots using GPT-4o-mini",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+                description="Extract NYT Pips puzzle data from screenshots using multimodal LLMs",
+                formatter_class=argparse.RawDescriptionHelpFormatter,
+                epilog="""
 Examples:
-  pips-extract screenshot.png
-  pips-extract puzzle.jpg > puzzle.json
+    pips-extract screenshot.png
+    pips-extract puzzle.jpg > puzzle.json
   
 Environment:
-  OPENAI_API_KEY must be set to use this feature
-        """
-    )
+    OPENAI_API_KEY for OpenAI models
+    ANTHROPIC_API_KEY for Claude models
+                """
+        )
     
     parser.add_argument(
         "screenshot",
@@ -283,10 +395,27 @@ Environment:
         help="Number of retry attempts if validation fails (default: 1)"
     )
     
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "anthropic"],
+        default="openai",
+        help="Model provider to use for extraction (default: openai)"
+    )
+
+    parser.add_argument(
+        "--model",
+        help="Override the model identifier for the selected provider"
+    )
+    
     args = parser.parse_args()
     
     try:
-        result = extract_puzzle(args.screenshot, retry=args.retry)
+        result = extract_puzzle(
+            args.screenshot,
+            retry=args.retry,
+            provider=args.provider,
+            model=args.model,
+        )
         print(json.dumps(result, indent=2, sort_keys=True))
     except FileNotFoundError:
         print(f"Error: File '{args.screenshot}' not found.", file=sys.stderr)

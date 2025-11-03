@@ -4,7 +4,7 @@ import pytest
 import json
 from jsonschema import validate, ValidationError
 from pips_solver.extract import (
-    NYT_PIPS_SCHEMA, semantic_validate, load_image_as_data_url
+    NYT_PIPS_SCHEMA, semantic_validate, load_image_as_data_url, call_model
 )
 from unittest.mock import Mock, patch, MagicMock
 from PIL import Image
@@ -331,3 +331,23 @@ class TestExtractPuzzle:
         # Should succeed after retry
         assert result == valid_data
         assert mock_call.call_count == 2
+
+
+class TestCallModelRouting:
+    """Ensure call_model dispatches to the correct backend."""
+
+    @patch('pips_solver.extract.call_openai')
+    def test_call_model_uses_openai(self, mock_openai):
+        mock_openai.return_value = {}
+        call_model("data:image/png;base64,stub", provider="openai")
+        mock_openai.assert_called_once()
+
+    @patch('pips_solver.extract.call_anthropic')
+    def test_call_model_uses_anthropic(self, mock_claude):
+        mock_claude.return_value = {}
+        call_model("data:image/png;base64,stub", provider="anthropic")
+        mock_claude.assert_called_once()
+
+    def test_call_model_invalid_provider(self):
+        with pytest.raises(ValueError):
+            call_model("data:image/png;base64,stub", provider="unknown")

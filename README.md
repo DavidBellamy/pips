@@ -25,26 +25,32 @@ For development with testing:
 pip install -e ".[dev]"
 ```
 
-**Note**: The screenshot extraction feature requires the `openai`, `jsonschema`, and `pillow` packages, which are automatically installed as dependencies. You'll also need to set your OpenAI API key as an environment variable:
+**Note**: The screenshot extraction feature requires the `openai`, `anthropic`, `jsonschema`, and `pillow` packages, which are automatically installed as dependencies. You'll also need to set the appropriate API key as an environment variable:
 
 ```bash
 export OPENAI_API_KEY="your-api-key-here"
+# or for Claude support
+export ANTHROPIC_API_KEY="your-api-key-here"
 ```
 
 ## Usage
 
 ### Screenshot Extraction (New!)
 
-Extract puzzle data from a screenshot using GPT-4o-mini vision:
+Extract puzzle data from a screenshot using GPT-4o-mini vision (default) or Claude 3.5 Haiku vision:
 
 ```bash
 pips-extract screenshot.png > puzzle.json
 ```
 
-This will analyze the screenshot and output the puzzle data in JSON format. The extraction uses OpenAI's GPT-4o-mini model with JSON schema validation to ensure accurate extraction.
+This will analyze the screenshot and output the puzzle data in JSON format. By default it uses OpenAI's GPT-4o-mini model with JSON schema validation to ensure accurate extraction. You can switch to Anthropic Claude:
+
+```bash
+pips-extract screenshot.png --provider anthropic --model claude-3-5-haiku-20241022 > puzzle.json
+```
 
 **Requirements**:
-- Set the `OPENAI_API_KEY` environment variable
+- Set the `OPENAI_API_KEY` environment variable (or `ANTHROPIC_API_KEY` when using Claude)
 - The screenshot should clearly show the puzzle board and available domino tiles
 
 You can then solve the extracted puzzle:
@@ -178,7 +184,7 @@ The solver now supports various board shapes:
 
 ### Screenshot Extraction Details
 
-The `pips-extract` command uses OpenAI's GPT-4o-mini vision model to extract puzzle data from screenshots. The extraction process:
+The `pips-extract` command uses multimodal LLMs (OpenAI GPT-4o-mini by default, or Anthropic Claude 3.5 Haiku when selected) to extract puzzle data from screenshots. The extraction process:
 
 1. **Loads the image**: Converts the screenshot to a base64-encoded data URL
 2. **Calls GPT-4o-mini**: Uses structured output with JSON schema to ensure valid format
