@@ -8,7 +8,7 @@ from PIL import Image
 from jsonschema import validate, ValidationError
 from openai import OpenAI
 
-# --- 1) JSON Schema (exactly the "raw JSON Schema" you approved) ---
+# --- 1) JSON Schema ---
 NYT_PIPS_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "NYT Pips Extraction",
@@ -45,36 +45,18 @@ NYT_PIPS_SCHEMA = {
                 "col": {"type": "integer", "minimum": 0}
             }
         },
-        "ConstraintNone": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["type"],
-            "properties": {"type": {"type": "string", "enum": ["none"]}}
-        },
-        "ConstraintSum": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["type", "value"],
-            "properties": {
-                "type": {"type": "string", "enum": ["sum"]},
-                "value": {"type": "integer", "minimum": 0}
-            }
-        },
-        "ConstraintEq": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["type", "value"],
-            "properties": {
-                "type": {"type": "string", "enum": ["="]},
-                "value": {"type": "integer", "minimum": 0, "maximum": 6}
-            }
-        },
         "Constraint": {
             "type": "object",
             "additionalProperties": False,
             "required": ["type"],
             "properties": {
-                "type": {"type": "string", "enum": ["none", "sum", "="]}
+                "type": {
+                    "type": "string",
+                    "enum": ["none", "equal", "notequal", "greater_than", "less_than", "number"]
+                }
+            },
+            "patternProperties": {
+                "^value$": {"type": "integer", "minimum": 0}
             }
         },
         "Region": {
@@ -98,9 +80,12 @@ Rules:
 - Output must be VALID JSON that matches the provided JSON schema.
 - Use zero-based row/col indices.
 - Extract all valid board cells, the domino tray tiles, and regions with constraints:
-  - type "sum" (value is an integer)
-  - type "="  (value 0..6) for single fixed cells
-  - type "none" when no badge is present.
+    - type "equal" when all pips in the cage are identical (no value field)
+    - type "notequal" when all pips in the cage differ (no value field)
+    - type "greater_than" (value is an integer threshold the cage sum must exceed)
+    - type "less_than" (value is an integer threshold the cage sum must stay below)
+    - type "number" (value is an integer that the cage sum must equal)
+    - type "none" when no badge is present.
 - If uncertain, pick the most likely interpretation and remain schema-valid."""
 
 
@@ -168,9 +153,31 @@ def call_model(image_data_url: str, prior_errors: str | None = None) -> dict:
         ],
     )
 
-    # Parse the response
-    content = resp.choices[0].message.content
-    return json.loads(content)
+    # Parse the response. The SDK may expose either a parsed payload or raw text parts.
+    message = resp.choices[0].message
+    parsed = getattr(message, "parsed", None)
+    if parsed is not None:
+        return parsed
+
+    content = message.content
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") in {"output_text", "text"} and "text" in part:
+                text_parts.append(part["text"])
+        content_text = "".join(text_parts)
+    else:
+        content_text = content or ""
+
+    try:
+        return json.loads(content_text)
+    except json.JSONDecodeError as exc:  # pragma: no cover - depends on remote model output
+        snippet = content_text[:1000]
+        raise ValidationError(
+            f"Model returned invalid JSON (pos {exc.pos}): {exc.msg}. Partial response: {snippet}"
+        ) from exc
 
 
 def semantic_validate(payload: dict):
@@ -187,21 +194,26 @@ def semantic_validate(payload: dict):
     for r in payload.get("regions", []):
         c = r["constraint"]
         t = c.get("type")
-        # '=' must apply to exactly one cell and include a value 0..6
-        if t == "=":
-            if len(r.get("positions", [])) != 1:
-                raise ValidationError('Constraint "=" must apply to exactly one cell.')
+        positions = r.get("positions", [])
+
+        if t == "equal":
+            if len(positions) < 2:
+                raise ValidationError('Constraint "equal" must apply to at least two cells.')
+            if "value" in c:
+                raise ValidationError('Constraint "equal" must not include a value.')
+        elif t == "notequal":
+            if len(positions) < 2:
+                raise ValidationError('Constraint "notequal" must apply to at least two cells.')
+            if "value" in c:
+                raise ValidationError('Constraint "notequal" must not include a value.')
+        elif t in {"greater_than", "less_than", "number"}:
             if "value" not in c:
-                raise ValidationError('Constraint "=" must include a value.')
-            if not isinstance(c["value"], int) or not (0 <= c["value"] <= 6):
-                raise ValidationError('Constraint "=" value must be an integer between 0 and 6.')
-        # 'sum' must include a non-negative integer value
-        elif t == "sum":
-            if "value" not in c:
-                raise ValidationError('Constraint "sum" must include a value.')
-            if not isinstance(c["value"], int) or c["value"] < 0:
-                raise ValidationError('Constraint "sum" value must be a non-negative integer.')
-        # 'none' requires no additional checks
+                raise ValidationError(f'Constraint "{t}" must include a value.')
+            value = c["value"]
+            if not isinstance(value, int) or value < 0:
+                raise ValidationError(f'Constraint "{t}" value must be a non-negative integer.')
+            if len(positions) < 1:
+                raise ValidationError(f'Constraint "{t}" must apply to at least one cell.')
         elif t == "none":
             continue
         else:
@@ -225,7 +237,13 @@ def extract_puzzle(path: str, retry: int = 1) -> dict:
     img = load_image_as_data_url(path)
     last_err = None
     for attempt in range(retry + 1):
-        data = call_model(img, prior_errors=str(last_err) if last_err else None)
+        try:
+            data = call_model(img, prior_errors=str(last_err) if last_err else None)
+        except ValidationError as e:
+            last_err = e
+            if attempt == retry:
+                raise
+            continue
         try:
             validate(instance=data, schema=NYT_PIPS_SCHEMA)  # structural
             semantic_validate(data)  # domain-specific

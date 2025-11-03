@@ -53,75 +53,184 @@ class TestSchema:
             validate(instance=invalid_puzzle, schema=NYT_PIPS_SCHEMA)
     
     def test_constraint_sum_structure(self):
-        """Test that sum constraints require a value field."""
+        """Test that number constraints require a value field."""
         valid_puzzle = {
             "valid_positions": [{"row": 0, "col": 0}],
             "dominoes": [[0, 0]],
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}],
-                    "constraint": {"type": "sum", "value": 5}
+                    "constraint": {"type": "number", "value": 5}
                 }
             ]
         }
         validate(instance=valid_puzzle, schema=NYT_PIPS_SCHEMA)
     
     def test_constraint_equal_structure(self):
-        """Test that equal constraints work with value field."""
+        """Test that equal constraints require no value field."""
         valid_puzzle = {
             "valid_positions": [{"row": 0, "col": 0}],
             "dominoes": [[0, 0]],
             "regions": [
                 {
-                    "positions": [{"row": 0, "col": 0}],
-                    "constraint": {"type": "=", "value": 3}
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "equal"}
                 }
             ]
         }
         validate(instance=valid_puzzle, schema=NYT_PIPS_SCHEMA)
 
+    def test_constraint_notequal_structure(self):
+        """Test that notequal constraints require no value field."""
+        valid_puzzle = {
+            "valid_positions": [{"row": 0, "col": 0}],
+            "dominoes": [[0, 0]],
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "notequal"}
+                }
+            ]
+        }
+        validate(instance=valid_puzzle, schema=NYT_PIPS_SCHEMA)
+
+    def test_constraint_greater_than_structure(self):
+        """Test that greater_than constraints require a value field."""
+        valid_puzzle = {
+            "valid_positions": [{"row": 0, "col": 0}],
+            "dominoes": [[0, 0]],
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "greater_than", "value": 5}
+                }
+            ]
+        }
+        validate(instance=valid_puzzle, schema=NYT_PIPS_SCHEMA)
+
+    def test_constraint_value_must_be_integer(self):
+        """Test that constraint value must be an integer when provided."""
+        invalid_puzzle = {
+            "valid_positions": [{"row": 0, "col": 0}],
+            "dominoes": [[0, 0]],
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "number", "value": "five"}
+                }
+            ]
+        }
+        with pytest.raises(ValidationError):
+            validate(instance=invalid_puzzle, schema=NYT_PIPS_SCHEMA)
+
+    def test_constraint_rejects_unknown_property(self):
+        """Test that unexpected constraint properties are rejected by the schema."""
+        invalid_puzzle = {
+            "valid_positions": [{"row": 0, "col": 0}],
+            "dominoes": [[0, 0]],
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}],
+                    "constraint": {"type": "none", "extra": 1}
+                }
+            ]
+        }
+        with pytest.raises(ValidationError):
+            validate(instance=invalid_puzzle, schema=NYT_PIPS_SCHEMA)
+
 
 class TestSemanticValidation:
     """Tests for semantic validation rules."""
     
-    def test_equal_constraint_on_single_cell(self):
-        """Test that '=' constraint on single cell is valid."""
+    def test_equal_constraint_requires_multiple_cells(self):
+        """Test that equal constraint on multiple cells is valid."""
+        puzzle = {
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "equal"}
+                }
+            ]
+        }
+        # Should not raise
+        semantic_validate(puzzle)
+
+    def test_equal_constraint_on_single_cell_fails(self):
+        """Test that equal constraint on single cell is rejected."""
         puzzle = {
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}],
-                    "constraint": {"type": "=", "value": 3}
+                    "constraint": {"type": "equal"}
                 }
             ]
         }
-        # Should not raise
-        semantic_validate(puzzle)
-    
-    def test_equal_constraint_on_multiple_cells_fails(self):
-        """Test that '=' constraint on multiple cells is rejected."""
-        puzzle = {
-            "regions": [
-                {
-                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "=", "value": 3}
-                }
-            ]
-        }
-        with pytest.raises(ValidationError, match='must apply to exactly one cell'):
+        with pytest.raises(ValidationError, match='at least two cells'):
             semantic_validate(puzzle)
-    
-    def test_sum_constraint_on_multiple_cells(self):
-        """Test that sum constraint on multiple cells is valid."""
+
+    def test_notequal_constraint_valid(self):
+        """Test that notequal constraint on multiple cells is valid."""
         puzzle = {
             "regions": [
                 {
                     "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "sum", "value": 8}
+                    "constraint": {"type": "notequal"}
+                }
+            ]
+        }
+        semantic_validate(puzzle)
+
+    def test_notequal_constraint_on_single_cell_fails(self):
+        """Test that notequal constraint on single cell is rejected."""
+        puzzle = {
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}],
+                    "constraint": {"type": "notequal"}
+                }
+            ]
+        }
+        with pytest.raises(ValidationError, match='at least two cells'):
+            semantic_validate(puzzle)
+
+    def test_notequal_constraint_with_value_fails(self):
+        """Test that notequal constraint cannot include a value."""
+        puzzle = {
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "notequal", "value": 3}
+                }
+            ]
+        }
+        with pytest.raises(ValidationError, match='must not include a value'):
+            semantic_validate(puzzle)
+
+    def test_number_constraint_on_multiple_cells(self):
+        """Test that number constraint on multiple cells is valid."""
+        puzzle = {
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "number", "value": 8}
                 }
             ]
         }
         # Should not raise
         semantic_validate(puzzle)
+
+    def test_greater_than_constraint_requires_value(self):
+        """Test that greater_than constraint must include non-negative value."""
+        puzzle = {
+            "regions": [
+                {
+                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
+                    "constraint": {"type": "greater_than", "value": -1}
+                }
+            ]
+        }
+        with pytest.raises(ValidationError, match='non-negative integer'):
+            semantic_validate(puzzle)
     
     def test_none_constraint(self):
         """Test that none constraint is always valid."""
@@ -198,8 +307,8 @@ class TestExtractPuzzle:
             "dominoes": [[0, 0]],
             "regions": [
                 {
-                    "positions": [{"row": 0, "col": 0}, {"row": 0, "col": 1}],
-                    "constraint": {"type": "=", "value": 3}  # Invalid: = on multiple cells
+                    "positions": [{"row": 0, "col": 0}],
+                    "constraint": {"type": "equal"}  # Invalid: equal requires multiple cells
                 }
             ]
         }
