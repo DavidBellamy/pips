@@ -18,8 +18,7 @@ NYT_PIPS_SCHEMA = {
     "properties": {
         "valid_positions": {
             "type": "array",
-            "items": {"$ref": "#/$defs/Position"},
-            "uniqueItems": True
+            "items": {"$ref": "#/$defs/Position"}
         },
         "dominoes": {
             "type": "array",
@@ -71,11 +70,12 @@ NYT_PIPS_SCHEMA = {
             }
         },
         "Constraint": {
-            "oneOf": [
-                {"$ref": "#/$defs/ConstraintNone"},
-                {"$ref": "#/$defs/ConstraintSum"},
-                {"$ref": "#/$defs/ConstraintEq"}
-            ]
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["type"],
+            "properties": {
+                "type": {"type": "string", "enum": ["none", "sum", "="]}
+            }
         },
         "Region": {
             "type": "object",
@@ -183,11 +183,29 @@ def semantic_validate(payload: dict):
     Raises:
         ValidationError: If semantic validation fails
     """
-    # Ensure "=" constraints only appear on single-cell regions
+    # Ensure constraints have correct shape and semantics
     for r in payload.get("regions", []):
         c = r["constraint"]
-        if c["type"] == "=" and len(r["positions"]) != 1:
-            raise ValidationError('Constraint "=" must apply to exactly one cell.')
+        t = c.get("type")
+        # '=' must apply to exactly one cell and include a value 0..6
+        if t == "=":
+            if len(r.get("positions", [])) != 1:
+                raise ValidationError('Constraint "=" must apply to exactly one cell.')
+            if "value" not in c:
+                raise ValidationError('Constraint "=" must include a value.')
+            if not isinstance(c["value"], int) or not (0 <= c["value"] <= 6):
+                raise ValidationError('Constraint "=" value must be an integer between 0 and 6.')
+        # 'sum' must include a non-negative integer value
+        elif t == "sum":
+            if "value" not in c:
+                raise ValidationError('Constraint "sum" must include a value.')
+            if not isinstance(c["value"], int) or c["value"] < 0:
+                raise ValidationError('Constraint "sum" value must be a non-negative integer.')
+        # 'none' requires no additional checks
+        elif t == "none":
+            continue
+        else:
+            raise ValidationError(f'Unknown constraint type: {t}')
 
 
 def extract_puzzle(path: str, retry: int = 1) -> dict:
